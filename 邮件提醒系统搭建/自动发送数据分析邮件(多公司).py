@@ -1,0 +1,50 @@
+import smtplib
+from email.mime.text import MIMEText
+user = '924734143@qq.com'
+pwd = 'gurddndpximybfbg'
+to = '827059292@qq.com'  # 可以设置多个收件人，英文逗号隔开，如：'***@qq.com, ***@163.com'
+# 1.连接数据库 提取所有今天的"阿里巴巴"的新闻信息
+import pymysql
+import time
+db = pymysql.connect(host='127.0.1', port=3306, user='root', password='123456', database='sys', charset='utf8')
+companys = ['阿里巴巴', '腾讯', '京东', '百度']
+for company in companys:
+    today = time.strftime("%Y-%m-%d")  # 这边采用标准格式的日期格式
+    cur = db.cursor()  # 获取会话指针，用来调用SQL语句
+    sql = 'SELECT * FROM article WHERE company = %s AND date = %s AND score < 0'
+    cur.execute(sql, (company, today))
+    data = cur.fetchall()  # 提取所有数据，并赋值给data变量
+    print(data)
+    db.commit()  # 这个其实可以不写，因为没有改变表结构
+
+    # 2.利用从数据库里提取的内容编写邮件正文内容
+    mail_msg = []
+    mail_msg.append('<p style="margin:0 auto">尊敬的小主，您好，以下是今天的舆情监控报告，望查阅：</p>')  # style="margin:0 auto"用来调节行间距
+    mail_msg.append('<p style="margin:0 auto"><b>一、' + company + '舆情报告</b></p>')  # 加上<b>表示加粗
+    for i in range(len(data)):
+        href = '<p style="margin:0 auto"><a href="' + data[i][2] + '">' + str(i+1) + '.' + data[i][1] + '</a></p>'
+        mail_msg.append(href)
+
+    mail_msg.append('<br>')  # <br>表示换行
+    mail_msg.append('<p style="margin:0 auto">祝好</p>')
+    mail_msg.append('<p style="margin:0 auto">华小智</p>')
+    mail_msg = '\n'.join(mail_msg)
+    print(mail_msg)
+
+    # 3.添加正文内容
+    msg = MIMEText(mail_msg, 'html', 'utf-8')
+
+    # 4.设置邮件主题、发件人、收件人
+    msg["Subject"] = "华小智舆情监控报告"
+    msg["From"] = user
+    msg["To"] = to
+
+    # 5.发送邮件
+    s = smtplib.SMTP_SSL('smtp.qq.com', 465)  # 选择qq邮箱服务，默认端口为465
+    s.login(user, pwd)  # 登录qq邮箱
+    s.send_message(msg)  # 发送邮件
+    s.quit()  # 退出邮箱服务
+    print('Success!')
+
+cur.close()  # 关闭会话指针
+db.close()  # 关闭数据库链接
